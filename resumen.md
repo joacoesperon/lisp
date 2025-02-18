@@ -1,0 +1,2 @@
+cdr -> puntero
+car -> valor

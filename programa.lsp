@@ -1,16 +1,33 @@
-; Función principal para generar el laberinto y probar establecer/obtener
+; Función principal para generar el laberinto
 (defun inicio (&optional (n 25) (m 25))
   (let ((laberinto (inicializar-matriz-laberinto n m)))
-    ; Establecemos algunos valores
-    (let ((laberinto-modificado 
-           (establecer-elemento 
-            (establecer-elemento laberinto 0 0 'entrada) ; Posición (0, 0)
-            24 24 'sortida))) ; Posición (24, 24)
-      ; Obtenemos y mostramos los valores para verificar
-      (format t "Posicion (0, 0): ~a~%" (obtener-elemento laberinto-modificado 0 0))
-      (format t "Posicion (24, 12): ~a~%" (obtener-elemento laberinto-modificado 24 12))
-      (format t "Posicion (1, 1): ~a~%" (obtener-elemento laberinto-modificado 1 1))
-      ))) ; Retornamos la matriz modificada
+    ; Generamos la entrada aleatoria
+    (let ((resultado (generar-entrada laberinto n m)))
+      (let ((laberinto-modificado (car resultado)) ; Primer elemento: matriz
+            (casilla-actual (car (cdr resultado)))) ; Segundo elemento: lista (fila columna)
+           
+           
+        ; Extraemos fila y columna de casilla-actual
+        (let ((fila-entrada (car casilla-actual))
+              (columna-entrada (car (cdr casilla-actual))))
+          ; Mostramos la posición de la entrada y algunos valores para verificar
+          (format t "Posición de entrada (~d, ~d): ~a~%" 
+                  fila-entrada columna-entrada
+                  (obtener-elemento laberinto-modificado fila-entrada columna-entrada))        
+          (format t "Posición (0, 0): ~a~%" (obtener-elemento laberinto-modificado 0 0))
+          (format t "Posición (24, 24): ~a~%" (obtener-elemento laberinto-modificado 24 24))
+          ))))) ; Retornamos la matriz modificada
+
+; Función para generar la entrada aleatoria evitando los bordes
+(defun generar-entrada (matriz n m)
+  (let ((fila-entrada (numero-aleatorio n))
+        (columna-entrada (numero-aleatorio m)))
+    (let ((laberinto-modificado (establecer-elemento matriz fila-entrada columna-entrada 'entrada)))
+      (list laberinto-modificado (list fila-entrada columna-entrada))))) ; Retorna matriz y casilla actual
+
+; Función para generar un número aleatorio entre 1 y frontera-2 (evita bordes)
+(defun numero-aleatorio (frontera)
+  (+ 1 (random (- frontera 2))))
 
 ;///////////////
 ;// FUNCIONES //
@@ -65,3 +82,9 @@
      (cons valor (establecer-columna (cdr fila) columna valor (1+ current-columna))))
     (t
      (cons (car fila) (establecer-columna (cdr fila) columna valor (1+ current-columna))))))
+
+; Función proporcionada por el profesor (no usada por ahora, pero incluida)
+(defun tornaprimers (n l)
+  (cond ((= n 0) nil)
+        (t (cons (car l)
+                 (tornaprimers (- n 1) (cdr l))))))

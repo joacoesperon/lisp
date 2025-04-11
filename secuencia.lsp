@@ -155,7 +155,6 @@
 ;///////////////////////////////////////////////////////////////////////////////////
 ;/////////////////////// FUNCIONES PARA EXPLORAR EL LABERINTO //////////////////////
 ;///////////////////////////////////////////////////////////////////////////////////
-
 ; Función principal para jugar con un laberinto
 (defun explora (nom-fitxer)
   (let ((nombre-usuario (obtener-nombre-usuario)))
@@ -166,15 +165,46 @@
             (m (car (cdr (cdr resultado-carga)))))
         ; Buscamos la posición de la entrada como posición inicial del jugador
         (let ((posicion-inicial (encontrar-entrada laberinto 0 0 n m)))
-          (jugar-laberinto laberinto n m posicion-inicial))))))
+          (jugar-laberinto laberinto n m posicion-inicial 0 nom-fitxer nombre-usuario)))))) ; Pasamos nom-fitxer y nombre-usuario
 
 ; Función para manejar el bucle de juego y la interacción del usuario
-(defun jugar-laberinto (matriz n m posicion-actual)
+(defun jugar-laberinto (matriz n m posicion-actual pasos nom-fitxer nombre-usuario)
   (pintar-laberinto matriz n m posicion-actual) ; Dibujamos el laberinto inicial
   (let ((tecla (get-key))) ; Detectamos la tecla pulsada
-    (cond ((eq tecla 'ESC) nil) ; Si es ESC, terminamos
+    (cond ((eq tecla 27) ; Si es ESC (código 27), terminamos
+           (finalizar-juego 'esc pasos n m nom-fitxer nombre-usuario))
           (t (let ((nueva-posicion (mover-jugador matriz posicion-actual tecla n m)))
-               (jugar-laberinto matriz n m nueva-posicion)))))) ; Repetimos con la nueva posición
+               (let ((nuevos-pasos (if (equal posicion-actual nueva-posicion) ; Si la posición no cambió, no incrementamos
+                                       pasos
+                                       (+ pasos 1))))
+                 (if (eq (obtener-elemento matriz (car nueva-posicion) (car (cdr nueva-posicion))) 'sortida)
+                     (finalizar-juego 'llegada-a-salida nuevos-pasos n m nom-fitxer nombre-usuario) ; Si llegamos a la salida, terminamos
+                     (jugar-laberinto matriz n m nueva-posicion nuevos-pasos nom-fitxer nombre-usuario)))))))) ; Si no, continuamos
+
+; Función para finalizar el juego
+(defun finalizar-juego (motivo pasos n m nom-fitxer nombre-usuario)
+  (cls) ; Limpiamos la pantalla para borrar el tablero
+  (cond ((eq motivo 'llegada-a-salida)
+         (let ((puntuacion (* (/ 1000 (+ pasos 1)) (* n m)))) ; Calculamos la puntuación
+           (format t "¡Felicidades! Has llegado a la salida.~%")
+           (format t "Pasos realizados: ~a~%" pasos)
+           (format t "Puntuación: ~a~%" (round puntuacion)) ; Redondeamos para evitar decimales
+           (escribir-partida nom-fitxer nombre-usuario (round puntuacion)) ; Guardamos el resultado
+           nil))
+        ((eq motivo 'esc)
+         (format t "Finalización de la Partida por parte del Usuario~%")
+         nil)
+        (t
+         (error "Motivo de finalización no válido: ~a" motivo))))
+
+; Función para escribir los resultados de la partida en Resultados.txt
+(defun escribir-partida (nom-fitxer nombre-usuario puntuacion)
+  (let ((out (open "Resultados.txt"
+                   :direction :output
+                   :if-exists :append
+                   :if-does-not-exist :create)))
+    (format out "~a ~a ~a~%" nom-fitxer nombre-usuario puntuacion)
+    (close out)))
 
 ; Función auxiliar para encontrar la posición de la entrada
 (defun encontrar-entrada (matriz fila columna n m)
@@ -268,7 +298,6 @@
              (dibujar-rectangulo x y ancho-casilla alto-casilla)
              ; Si es la posición actual del jugador, pintamos en verde encima
              (cond ((and (= fila (car posicion-actual)) (= columna (car (cdr posicion-actual))))
-                    (format t "Pintando jugador en (~a, ~a)~%" fila columna) ; Mensaje de depuración
                     (color 0 255 0) ; Verde para el jugador
                     (dibujar-rectangulo x y ancho-casilla alto-casilla))))
            (pintar-columnas matriz fila (+ columna 1) m ancho-casilla alto-casilla posicion-actual))))
@@ -285,27 +314,27 @@
 (defun mover-jugador (matriz posicion-actual tecla n m)
   (let ((fila-actual (car posicion-actual))
         (columna-actual (car (cdr posicion-actual))))
-    (cond ((or (eq tecla 'A) (eq tecla 'a) (eq tecla 'LEFT)) ; Izquierda
+    (cond ((or (eq tecla 65) (eq tecla 97) (eq tecla 331)) ; Izquierda (A, a, flecha izquierda)
            (let ((nueva-columna (- columna-actual 1)))
              (if (and (>= nueva-columna 0)
                       (member (obtener-elemento matriz fila-actual nueva-columna) '(cami entrada sortida)))
                  (list fila-actual nueva-columna) ; Movemos si es válido
                  posicion-actual))) ; Si no, mantenemos la posición
-          ((or (eq tecla 'W) (eq tecla 'w) (eq tecla 'UP)) ; Arriba
-           (let ((nueva-fila (- fila-actual 1)))
-             (if (and (>= nueva-fila 0)
+          ((or (eq tecla 87) (eq tecla 119) (eq tecla 328)) ; Arriba (W, w, flecha arriba) - Aumentar fila
+           (let ((nueva-fila (+ fila-actual 1))) ; Invertimos: subir en pantalla = aumentar fila
+             (if (and (< nueva-fila n) ; Cambiamos la condición para permitir moverse hacia abajo en la matriz
                       (member (obtener-elemento matriz nueva-fila columna-actual) '(cami entrada sortida)))
                  (list nueva-fila columna-actual)
                  posicion-actual)))
-          ((or (eq tecla 'D) (eq tecla 'd) (eq tecla 'RIGHT)) ; Derecha
+          ((or (eq tecla 68) (eq tecla 100) (eq tecla 333)) ; Derecha (D, d, flecha derecha)
            (let ((nueva-columna (+ columna-actual 1)))
              (if (and (< nueva-columna m)
                       (member (obtener-elemento matriz fila-actual nueva-columna) '(cami entrada sortida)))
                  (list fila-actual nueva-columna)
                  posicion-actual)))
-          ((or (eq tecla 'S) (eq tecla 's) (eq tecla 'DOWN)) ; Abajo
-           (let ((nueva-fila (+ fila-actual 1)))
-             (if (and (< nueva-fila n)
+          ((or (eq tecla 83) (eq tecla 115) (eq tecla 336)) ; Abajo (S, s, flecha abajo) - Disminuir fila
+           (let ((nueva-fila (- fila-actual 1))) ; Invertimos: bajar en pantalla = disminuir fila
+             (if (and (>= nueva-fila 0) ; Cambiamos la condición para permitir moverse hacia arriba en la matriz
                       (member (obtener-elemento matriz nueva-fila columna-actual) '(cami entrada sortida)))
                  (list nueva-fila columna-actual)
                  posicion-actual)))
@@ -364,3 +393,7 @@
      (cons valor (establecer-columna (cdr fila) columna valor (1+ current-columna))))
     (t
      (cons (car fila) (establecer-columna (cdr fila) columna valor (1+ current-columna))))))
+
+; Definimos longitud-lista como length
+(defun longitud-lista (lista)
+  (length lista))

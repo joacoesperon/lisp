@@ -1,7 +1,7 @@
-; Función principal para generar el laberinto
-(defun inicio (nom-fichero &optional (n 25) (m 25))
+; Función principal para generar el laberinto y escribirlo en un fichero
+(defun genera (nom-fitxer &optional (n 25) (m 25))
     (let ((laberinto (inicializar-matriz-laberinto n m)))
-      ; Generamos la entrada aleatoria
+      ; Generamos la entrada aleatoria y guardamos la casilla de entrada
       (let ((resultado (generar-entrada laberinto n m)))
         (let ((laberinto-con-entrada (car resultado))
               (casilla-actual (car (cdr resultado))))
@@ -12,43 +12,52 @@
             ; Añadimos la salida aleatoria
             (let ((laberinto-final (generar-salida laberinto-con-caminos n m)))
               ; Escribimos el laberinto en el archivo
-              (escribir-en-fichero laberinto-final nom-fichero n m)))))))
+              (escribir-en-fichero laberinto-final nom-fitxer n m)))))))
+
 
 ; Función para generar la entrada aleatoria evitando los bordes
 (defun generar-entrada (matriz n m)
+  ; selecciona una fila y columna aleatoria
   (let ((fila-entrada (numero-aleatorio n))
         (columna-entrada (numero-aleatorio m)))
+        ;establece el valor 'entrada en la casilla aleatoria
     (let ((laberinto-modificado (establecer-elemento matriz fila-entrada columna-entrada 'entrada)))
       (list laberinto-modificado (list fila-entrada columna-entrada))))) ; Retorna matriz y casilla actual
 
 ; Función DFS recursiva para generar caminos
 (defun generar-dfs (matriz casilla-actual n m)
+  ; genera una lista con las 4 posiciones adyacentes en orden aleatorio
   (let ((direcciones (mezclar-direcciones (list (list 0 1) (list 0 -1) (list 1 0) (list -1 0)))))
     (explorar-adyacentes matriz casilla-actual direcciones n m)))
 
-; Función para explorar las casillas adyacentes (corregida)
+; Función para explorar las casillas adyacentes
 (defun explorar-adyacentes (matriz casilla-actual direcciones n m)
   (cond ((null direcciones) matriz) ; Si no hay más direcciones, retornamos la matriz
-        (t (let ((dir (car direcciones)))
+        (t (let ((dir (car direcciones))) ; guarda la primera direccion
+              ; calculamos la nueva casilla a partir de la casilla actual y la direccion aleatoria
              (let ((nueva-fila (+ (car casilla-actual) (car dir)))
                    (nueva-columna (+ (car (cdr casilla-actual)) (car (cdr dir)))))
-               (cond ((and (posicion-valida nueva-fila nueva-columna n m)
-                           (eq (obtener-elemento matriz nueva-fila nueva-columna) 'paret)
-                           (unica-conexion matriz nueva-fila nueva-columna casilla-actual))
+               (cond ((and (posicion-valida nueva-fila nueva-columna n m); [0-23]
+                           (eq (obtener-elemento matriz nueva-fila nueva-columna) 'paret); es pared
+                           (unica-conexion matriz nueva-fila nueva-columna casilla-actual)); de todas las vecinas la unica entrada o camino es la actual
                       ; Marcamos como camino y exploramos desde ahí
                       (let ((matriz-con-camino 
                              (establecer-elemento matriz nueva-fila nueva-columna 'cami)))
                         ; Exploramos desde la nueva posición y luego continuamos con las demás direcciones
                         (let ((matriz-actualizada (generar-dfs matriz-con-camino (list nueva-fila nueva-columna) n m)))
                           (explorar-adyacentes matriz-actualizada casilla-actual (cdr direcciones) n m))))
+                     ;si no se cumplen las codinciones explora con la siguiente direcci
                      (t (explorar-adyacentes matriz casilla-actual (cdr direcciones) n m))))))))
 
-; Función para generar la salida aleatoria (Punto 5)
+; Función para generar la salida aleatoria
 (defun generar-salida (matriz n m)
+  ; lista con todas las casillas 'cami
   (let ((caminos (encontrar-caminos matriz 0 0 n m nil)))
     (cond ((null caminos) matriz) ; Si no hay caminos, retornamos sin cambios
+          ; selecciona una casilla aleatoria
           (t (let ((indice (random (longitud-lista caminos))))
                (let ((casilla-salida (obtener-elemento-lista caminos indice)))
+                ; retorna la matriz con una casilla con valor 'sortida
                  (establecer-elemento matriz (car casilla-salida) (car (cdr casilla-salida)) 'sortida)))))))
 
 ; Función para encontrar todas las casillas 'cami
@@ -64,6 +73,7 @@
 (defun mezclar-direcciones (direcciones)
   (cond ((null direcciones) nil)
         (t (let ((indice (random (longitud-lista direcciones))))
+              ; seleccionamos una dir aleatoria y la metemos al principio y llamamos otra vez a la funcion sin esta dir
              (let ((dir-elegida (obtener-elemento-lista direcciones indice)))
                (cons dir-elegida (mezclar-direcciones (eliminar-elemento-lista direcciones indice))))))))
 
@@ -74,7 +84,7 @@
 ; Función para verificar si solo hay una conexión (la casilla actual)
 (defun unica-conexion (matriz fila columna casilla-actual)
   (let ((vecinos (contar-vecinos-camino matriz fila columna)))
-    (= vecinos 1)))
+    (= vecinos 1))) ; retorna t si solo hay un vecino
 
 ; Función para contar vecinos que son 'cami o 'entrada
 (defun contar-vecinos-camino (matriz fila columna)
@@ -83,7 +93,8 @@
 
 ; Función recursiva para contar vecinos
 (defun contar-vecinos-recursivo (matriz fila columna direcciones conteo)
-  (cond ((null direcciones) conteo)
+  (cond ((null direcciones) conteo); si no hay direcciones retornamos conteo
+        ;calcula la nueva posicion
         (t (let ((nueva-fila (+ fila (car (car direcciones))))
                  (nueva-columna (+ columna (car (cdr (car direcciones))))))
              (cond ((and (posicion-valida nueva-fila nueva-columna (longitud-lista matriz) (longitud-lista (car matriz)))
@@ -141,9 +152,188 @@
            (escribir-columnas matriz out fila (+ columna 1) m)))) ; Pasamos a la siguiente columna
 
 
-;///////////////
-;// FUNCIONES BASE //
-;///////////////
+;///////////////////////////////////////////////////////////////////////////////////
+;/////////////////////// FUNCIONES PARA EXPLORAR EL LABERINTO //////////////////////
+;///////////////////////////////////////////////////////////////////////////////////
+; Función principal para jugar con un laberinto
+(defun explora (nom-fitxer)
+  (let ((nombre-usuario (obtener-nombre-usuario)))
+    (format t "Hola, ~a! Vamos a explorar el laberinto en ~a~%" nombre-usuario nom-fitxer)
+    (let ((resultado-carga (cargar-laberinto nom-fitxer))) ; Cargamos el laberinto y sus dimensiones
+      (let ((laberinto (car resultado-carga))
+            (n (car (cdr resultado-carga)))
+            (m (car (cdr (cdr resultado-carga)))))
+        ; Buscamos la posición de la entrada como posición inicial del jugador
+        (let ((posicion-inicial (encontrar-entrada laberinto 0 0 n m)))
+          (jugar-laberinto laberinto n m posicion-inicial 0)))))) ; Inicializamos el conteo de pasos en 0
+
+; Función para manejar el bucle de juego y la interacción del usuario
+(defun jugar-laberinto (matriz n m posicion-actual pasos)
+  (pintar-laberinto matriz n m posicion-actual) ; Dibujamos el laberinto inicial
+  (let ((tecla (get-key))) ; Detectamos la tecla pulsada
+    (cond ((eq tecla 27) ; Si es ESC (código 27), terminamos
+           (finalizar-juego 'esc pasos n m))
+          (t (let ((nueva-posicion (mover-jugador matriz posicion-actual tecla n m)))
+               (let ((nuevos-pasos (if (equal posicion-actual nueva-posicion) ; Si la posición no cambió, no incrementamos
+                                       pasos
+                                       (+ pasos 1))))
+                 (if (eq (obtener-elemento matriz (car nueva-posicion) (car (cdr nueva-posicion))) 'sortida)
+                     (finalizar-juego 'llegada-a-salida nuevos-pasos n m) ; Si llegamos a la salida, terminamos
+                     (jugar-laberinto matriz n m nueva-posicion nuevos-pasos)))))))) ; Si no, continuamos
+
+; Función para finalizar el juego
+(defun finalizar-juego (motivo pasos n m)
+  (cls) ; Limpiamos la pantalla para borrar el tablero
+  (cond ((eq motivo 'llegada-a-salida)
+         (let ((puntuacion (* (/ 1000 (+ pasos 1)) (* n m)))) ; Calculamos la puntuación
+           (format t "¡Felicidades! Has llegado a la salida.~%")
+           (format t "Pasos realizados: ~a~%" pasos)
+           (format t "Puntuación: ~a~%" (round puntuacion)) ; Redondeamos para evitar decimales
+           ; Aquí se registrará la puntuación en el futuro
+           nil))
+        ((eq motivo 'esc)
+         (format t "Finalización de la Partida por parte del Usuario~%")
+         nil)
+        (t
+         (error "Motivo de finalización no válido: ~a" motivo))))
+
+; Función auxiliar para encontrar la posición de la entrada
+(defun encontrar-entrada (matriz fila columna n m)
+  (cond ((>= fila n) nil) ; Si terminamos las filas sin encontrar, retornamos nil
+        ((>= columna m) (encontrar-entrada matriz (+ fila 1) 0 n m)) ; Siguiente fila
+        ((eq (obtener-elemento matriz fila columna) 'entrada) 
+         (list fila columna)) ; Devolvemos la posición de la entrada
+        (t (encontrar-entrada matriz fila (+ columna 1) n m)))) ; Seguimos buscando
+
+; Función para obtener el nombre del usuario desde la consola
+(defun obtener-nombre-usuario ()
+  (format t "Por favor, introduce tu nombre: ")
+  (let ((nombre (read))) ; Leemos la entrada del usuario
+    (string nombre))) ; Convertimos el símbolo a cadena
+
+; Función para cargar el laberinto desde un archivo de texto y detectar sus dimensiones
+(defun cargar-laberinto (nom-fitxer)
+  (let ((in (open nom-fitxer :direction :input)))
+    (if (null in)
+        (error "No se pudo abrir el archivo ~a" nom-fitxer) ; Manejo básico de errores
+        (let ((lineas (leer-todas-las-lineas in nil)))
+          (close in) ; Cerramos el archivo después de leer
+          (let ((n (longitud-lista lineas)) ; Número de filas
+                (m (length (car lineas)))) ; Longitud de la primera línea (columnas)
+            (let ((matriz (inicializar-matriz-laberinto n m)))
+              (let ((matriz-actualizada (cargar-filas matriz lineas 0 n m)))
+                (list matriz-actualizada n m))))))))
+
+; Función auxiliar para leer todas las líneas del archivo usando read-char
+(defun leer-todas-las-lineas (in lineas)
+  (let ((linea (leer-linea-con-char in nil))) ; Leemos una línea carácter por carácter
+    (cond ((null linea) lineas) ; Si no hay más líneas, devolvemos las líneas en orden
+          (t (leer-todas-las-lineas in (cons linea lineas))))))
+
+; Función auxiliar para leer una línea del archivo usando read-char
+(defun leer-linea-con-char (in caracteres)
+  (let ((char (read-char in nil nil))) ; Leemos un carácter del archivo
+    (cond ((null char) ; Si llegamos al final del archivo
+           (if (null caracteres) nil ; Si no hay caracteres acumulados, terminamos
+               (reverse caracteres))) ; Devolvemos la última línea acumulada
+          ((eq char #\newline) ; Si encontramos un salto de línea
+           (reverse caracteres)) ; Devolvemos la línea acumulada
+          (t (leer-linea-con-char in (cons char caracteres)))))) ; Acumulamos el carácter y seguimos
+
+; Función auxiliar recursiva para cargar las filas desde la lista de líneas
+(defun cargar-filas (matriz lineas fila n m)
+  (cond ((= fila n) matriz) ; Si hemos terminado todas las filas, retornamos la matriz
+        (t (let ((linea (car lineas)))
+             (cargar-filas (cargar-columnas matriz fila linea 0 m) (cdr lineas) (+ fila 1) n m)))))
+
+; Función auxiliar recursiva para cargar las columnas de una fila desde una línea de texto
+(defun cargar-columnas (matriz fila linea columna m)
+  (cond ((= columna m) matriz) ; Si hemos terminado las columnas, retornamos la matriz
+        (t (let ((caracter (nth columna linea))) ; Obtenemos el carácter en la posición actual
+             (let ((valor (case caracter
+                            (#\# 'paret)
+                            (#\. 'cami)
+                            (#\e 'entrada)
+                            (#\s 'sortida))))
+               (cargar-columnas (establecer-elemento matriz fila columna valor) fila linea (+ columna 1) m))))))
+
+; Función para pintar el laberinto usando las funciones gráficas disponibles
+(defun pintar-laberinto (matriz n m posicion-actual)
+  (let ((ancho-casilla (floor (/ 640 n))) ; 640 px dividido entre el número de filas, redondeado a entero
+        (alto-casilla (floor (/ 375 m)))) ; 375 px dividido entre el número de columnas, redondeado a entero
+    (cls) ; Limpiamos la pantalla antes de dibujar
+    (pintar-filas matriz 0 n m ancho-casilla alto-casilla posicion-actual)))
+
+; Función auxiliar recursiva para pintar las filas
+(defun pintar-filas (matriz fila n m ancho-casilla alto-casilla posicion-actual)
+  (cond ((= fila n) nil) ; Si hemos terminado las filas, terminamos
+        (t (pintar-columnas matriz fila 0 m ancho-casilla alto-casilla posicion-actual)
+           (pintar-filas matriz (+ fila 1) n m ancho-casilla alto-casilla posicion-actual))))
+
+; Función auxiliar recursiva para pintar las columnas de una fila
+(defun pintar-columnas (matriz fila columna m ancho-casilla alto-casilla posicion-actual)
+  (cond ((= columna m) nil) ; Si hemos terminado las columnas, terminamos
+        (t (let ((valor (obtener-elemento matriz fila columna))
+                 (x (* columna ancho-casilla))
+                 (y (* fila alto-casilla)))
+             ; Establecemos el color según el tipo de casilla
+             (cond ((eq valor 'paret) 
+                    (color 0 0 0)) ; Negro para paredes
+                   ((eq valor 'cami) 
+                    (color 255 255 255)) ; Blanco para caminos
+                   ((eq valor 'entrada) 
+                    (color 0 0 255)) ; Azul para la entrada
+                   ((eq valor 'sortida) 
+                    (color 255 0 0))) ; Rojo para la salida
+             ; Dibujamos un rectángulo para la casilla
+             (dibujar-rectangulo x y ancho-casilla alto-casilla)
+             ; Si es la posición actual del jugador, pintamos en verde encima
+             (cond ((and (= fila (car posicion-actual)) (= columna (car (cdr posicion-actual))))
+                    (color 0 255 0) ; Verde para el jugador
+                    (dibujar-rectangulo x y ancho-casilla alto-casilla))))
+           (pintar-columnas matriz fila (+ columna 1) m ancho-casilla alto-casilla posicion-actual))))
+
+; Función auxiliar para dibujar un rectángulo relleno usando move y draw
+(defun dibujar-rectangulo (x y ancho alto)
+  (let ((y-fin (+ y alto))) ; Calculamos la coordenada y final
+    (do ((current-y y (+ current-y 1))) ; Iteramos desde y hasta y + alto
+        ((>= current-y y-fin)) ; Condición de parada
+      (move x current-y) ; Nos movemos al inicio de la línea
+      (draw (+ x ancho) current-y)))) ; Dibujamos una línea horizontal
+
+; Función para intentar mover al jugador según la tecla pulsada
+(defun mover-jugador (matriz posicion-actual tecla n m)
+  (let ((fila-actual (car posicion-actual))
+        (columna-actual (car (cdr posicion-actual))))
+    (cond ((or (eq tecla 65) (eq tecla 97) (eq tecla 331)) ; Izquierda (A, a, flecha izquierda)
+           (let ((nueva-columna (- columna-actual 1)))
+             (if (and (>= nueva-columna 0)
+                      (member (obtener-elemento matriz fila-actual nueva-columna) '(cami entrada sortida)))
+                 (list fila-actual nueva-columna) ; Movemos si es válido
+                 posicion-actual))) ; Si no, mantenemos la posición
+          ((or (eq tecla 87) (eq tecla 119) (eq tecla 328)) ; Arriba (W, w, flecha arriba) - Aumentar fila
+           (let ((nueva-fila (+ fila-actual 1))) ; Invertimos: subir en pantalla = aumentar fila
+             (if (and (< nueva-fila n) ; Cambiamos la condición para permitir moverse hacia abajo en la matriz
+                      (member (obtener-elemento matriz nueva-fila columna-actual) '(cami entrada sortida)))
+                 (list nueva-fila columna-actual)
+                 posicion-actual)))
+          ((or (eq tecla 68) (eq tecla 100) (eq tecla 333)) ; Derecha (D, d, flecha derecha)
+           (let ((nueva-columna (+ columna-actual 1)))
+             (if (and (< nueva-columna m)
+                      (member (obtener-elemento matriz fila-actual nueva-columna) '(cami entrada sortida)))
+                 (list fila-actual nueva-columna)
+                 posicion-actual)))
+          ((or (eq tecla 83) (eq tecla 115) (eq tecla 336)) ; Abajo (S, s, flecha abajo) - Disminuir fila
+           (let ((nueva-fila (- fila-actual 1))) ; Invertimos: bajar en pantalla = disminuir fila
+             (if (and (>= nueva-fila 0) ; Cambiamos la condición para permitir moverse hacia arriba en la matriz
+                      (member (obtener-elemento matriz nueva-fila columna-actual) '(cami entrada sortida)))
+                 (list nueva-fila columna-actual)
+                 posicion-actual)))
+          (t posicion-actual)))) ; Si la tecla no es válida, no movemos
+
+;/////////////////////////////////////
+;// FUNCIONES BASE (GENERAR MATRIZ) //
+;/////////////////////////////////////
 
 ; Función para crear la matriz del laberinto
 (defun inicializar-matriz-laberinto (n m)
@@ -194,3 +384,7 @@
      (cons valor (establecer-columna (cdr fila) columna valor (1+ current-columna))))
     (t
      (cons (car fila) (establecer-columna (cdr fila) columna valor (1+ current-columna))))))
+
+; Definimos longitud-lista como length
+(defun longitud-lista (lista)
+  (length lista))
